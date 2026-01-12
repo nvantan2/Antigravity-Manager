@@ -674,7 +674,7 @@ pub async fn handle_messages(
                 let stream = response.bytes_stream();
                 let gemini_stream = Box::pin(stream);
                 // [v3.3.17] Pass session_id for signature caching
-                let claude_stream = create_claude_sse_stream(
+                let mut claude_stream = create_claude_sse_stream(
                     gemini_stream, 
                     trace_id.clone(), 
                     email.clone(),
