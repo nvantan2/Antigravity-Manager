@@ -152,7 +152,7 @@ pub async fn handle_warmup(
             })
         };
 
-        wrap_request(&base_request, &project_id, &req.model)
+        wrap_request(&base_request, &project_id, &req.model, Some(&session_id))
     };
 
     // ===== 步骤 3: 调用 UpstreamClient =====

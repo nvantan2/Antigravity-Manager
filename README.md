@@ -205,6 +205,17 @@ print(response.choices[0].message.content)
 ## 📝 开发者与社区
 
 *   **版本演进 (Changelog)**:
+    *   **v3.3.36 (2026-01-17)**:
+        - **Claude 协议核心稳定性修复**:
+            - **修复 "回复 OK" 死循环 (History Poisoning Fix)**:
+                - **问题根源**: 修复了 `is_warmup_request` 检测逻辑中的严重缺陷。旧逻辑会扫描最近 10 条历史消息，一旦历史记录中包含任何一条 "Warmup" 消息（无论是用户发送还是后台心跳残留），系统就会误判所有后续的用户输入（如 "continue"）为 Warmup 请求并强制回复 "OK"。
+                - **修复内容**: 将检测范围限制为仅检查**最新**的一条消息。现在只有当前请求确实是 Warmup 心跳时才会被拦截，彻底解决了用户在多轮对话中被 "OK" 卡死的问题。
+                - **影响范围**: 极大提升了 Claude Code CLI 及 Cherry Studio 等客户端在长时间会话下的可用性。
+            - **彻底修复 Cache Control 注入 (Fix Issue #744)**:
+                - **问题根源**: Claude 客户端在 Thinking 块中注入了非标准的 `cache_control: {"type": "ephemeral"}` 字段，导致 Google API 返回 `Extra inputs are not permitted` 400 错误。
+                - **修复内容**: 实现了全局递归清理函数 `clean_cache_control_from_messages`，并将其集成到 Anthropic (z.ai) 转发路径中，确保在发送给上游 API 前彻底移除所有 `cache_control` 字段。
+            - **签名错误防御体系全面验证**:
+                - **隐式修复 (Implicit Fixes)**: 经过深度代码审计，确认此前报告的一系列签名相关 Issue (#755, #654, #653, #639, #617) 已被 v3.3.35 的**严格签名验证**、**自动降级**及**Base64 智能解码**机制所覆盖和修复。现在的系统对缺失、损坏或编码错误的签名具有极高的容错性。
     *   **v3.3.35 (2026-01-16)**:
         - **CLI 同步功能重大增强 (CLI Sync Enhancements)**:
             - **多配置文件支持**: 现已支持同步每个 CLI 的多个配置文件，确保环境配置更完整。涵盖 Claude Code (`settings.json`, `.claude.json`)、Codex (`auth.json`, `config.toml`) 及 Gemini CLI (`.env`, `settings.json`, `config.json`)。

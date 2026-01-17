@@ -74,7 +74,7 @@ fn build_safety_settings() -> Value {
 /// 3. 即使是转发到 Gemini,也应该清理以保持协议纯净性
 /// 
 /// [FIX #593] 增强版本:添加详细日志用于调试 MCP 工具兼容性问题
-fn clean_cache_control_from_messages(messages: &mut [Message]) {
+pub fn clean_cache_control_from_messages(messages: &mut [Message]) {
     tracing::info!(
         "[DEBUG-593] Starting cache_control cleanup for {} messages",
         messages.len()
@@ -88,10 +88,11 @@ fn clean_cache_control_from_messages(messages: &mut [Message]) {
                 match block {
                     ContentBlock::Thinking { cache_control, .. } => {
                         if cache_control.is_some() {
-                            tracing::warn!(
-                                "[DEBUG-593] Found cache_control in Thinking block at message[{}].content[{}]",
+                            tracing::info!(
+                                "[ISSUE-744] Found cache_control in Thinking block at message[{}].content[{}]: {:?}",
                                 idx,
-                                block_idx
+                                block_idx,
+                                cache_control
                             );
                             *cache_control = None;
                             total_cleaned += 1;
@@ -1508,6 +1509,40 @@ fn is_model_compatible(cached: &str, target: &str) -> bool {
 mod tests {
     use super::*;
     use crate::proxy::common::json_schema::clean_json_schema;
+
+
+    #[test]
+    fn test_ephemeral_injection_debug() {
+        // This test simulates the issue where cache_control might be injected
+        let json_with_null = json!({
+            "model": "claude-3-5-sonnet-20241022",
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "type": "thinking",
+                            "thinking": "test",
+                            "signature": "sig_1234567890",
+                            "cache_control": null
+                        }
+                    ]
+                }
+            ]
+        });
+
+        let req: ClaudeRequest = serde_json::from_value(json_with_null).unwrap();
+        if let MessageContent::Array(blocks) = &req.messages[0].content {
+            if let ContentBlock::Thinking { cache_control, .. } = &blocks[0] {
+                assert!(cache_control.is_none(), "Deserialization should result in None for null cache_control");
+            }
+        }
+        
+        // Now test serialization
+        let serialized = serde_json::to_value(&req).unwrap();
+        println!("Serialized: {}", serialized);
+        assert!(serialized["messages"][0]["content"][0].get("cache_control").is_none());
+    }
 
     #[test]
     fn test_simple_request() {

@@ -202,10 +202,12 @@ pub struct NonStreamingProcessor {
     pub has_tool_call: bool,
     pub scaling_enabled: bool,
     pub context_limit: u32,
+    pub session_id: Option<String>,
+    pub model_name: String,
 }
 
 impl NonStreamingProcessor {
-    pub fn new() -> Self {
+    pub fn new(session_id: Option<String>, model_name: String) -> Self {
         Self {
             content_blocks: Vec::new(),
             text_builder: String::new(),
@@ -215,6 +217,8 @@ impl NonStreamingProcessor {
             has_tool_call: false,
             scaling_enabled: false, 
             context_limit: 1_048_576, // Default to 1M
+            session_id,
+            model_name,
         }
     }
 
@@ -263,7 +267,6 @@ impl NonStreamingProcessor {
 
     /// 处理单个 part
     fn process_part(&mut self, part: &GeminiPart) {
-        // [FIX #545] Decode Base64 signature if present (Gemini sends Base64, Claude expects Raw)
         let signature = part.thought_signature.as_ref().map(|sig| {
             use base64::Engine;
             match base64::engine::general_purpose::STANDARD.decode(sig) {
@@ -279,6 +282,15 @@ impl NonStreamingProcessor {
                 Err(_) => sig.clone() // Not base64, keep as is
             }
         });
+
+        // [FIX #765] Cache signature in NonStreamingProcessor
+        if let Some(sig) = &signature {
+            if let Some(s_id) = &self.session_id {
+                crate::proxy::SignatureCache::global().cache_session_signature(s_id, sig.to_string());
+                crate::proxy::SignatureCache::global().cache_thinking_family(sig.to_string(), self.model_name.clone());
+                tracing::debug!("[Claude-Response] Cached signature (len: {}) for session: {}", sig.len(), s_id);
+            }
+        }
 
 
         // 1. FunctionCall 处理
@@ -551,8 +563,8 @@ impl NonStreamingProcessor {
 }
 
 /// 转换 Gemini 响应为 Claude 响应 (公共接口)
-pub fn transform_response(gemini_response: &GeminiResponse, scaling_enabled: bool, context_limit: u32) -> Result<ClaudeResponse, String> {
-    let mut processor = NonStreamingProcessor::new();
+pub fn transform_response(gemini_response: &GeminiResponse, scaling_enabled: bool, context_limit: u32, session_id: Option<String>, model_name: String) -> Result<ClaudeResponse, String> {
+    let mut processor = NonStreamingProcessor::new(session_id, model_name);
     Ok(processor.process(gemini_response, scaling_enabled, context_limit))
 }
 
@@ -589,7 +601,7 @@ mod tests {
             response_id: Some("resp_123".to_string()),
         };
 
-        let result = transform_response(&gemini_resp, false, 1_000_000);
+        let result = transform_response(&gemini_resp, false, 1_000_000, None, "gemini-2.5-pro".to_string());
         assert!(result.is_ok());
 
         let claude_resp = result.unwrap();
@@ -639,7 +651,7 @@ mod tests {
             response_id: Some("resp_456".to_string()),
         };
 
-        let result = transform_response(&gemini_resp, false, 1_000_000);
+        let result = transform_response(&gemini_resp, false, 1_000_000, None, "gemini-2.5-pro".to_string());
         assert!(result.is_ok());
 
         let claude_resp = result.unwrap();

@@ -91,14 +91,33 @@ pub struct CliStatus {
 pub fn check_cli_installed(app: &CliApp) -> (bool, Option<String>) {
     let cmd = app.as_str();
     
-    // 1. 使用 which 检测
+    // 1. 优先使用 which/where 检测 (遵循 PATH)
     let which_output = if cfg!(target_os = "windows") {
         Command::new("where").arg(cmd).output()
     } else {
         Command::new("which").arg(cmd).output()
     };
 
-    if which_output.is_err() || !which_output.unwrap().status.success() {
+    let mut installed = match which_output {
+        Ok(out) => out.status.success(),
+        Err(_) => false,
+    };
+
+    // [FIX #765] macOS 增强检测: 如果 which 失败,显式搜索常用二进制路径
+    // 解决 Tauri 进程 PATH 可能不完整导致检测不到已安装 CLI 的问题
+    if !installed && !cfg!(target_os = "windows") {
+        let common_paths = ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin"];
+        for path in common_paths {
+            let full_path = std::path::Path::new(path).join(cmd);
+            if full_path.exists() {
+                tracing::debug!("[CLI-Sync] Detected {} via explicit path: {:?}", cmd, full_path);
+                installed = true;
+                break;
+            }
+        }
+    }
+
+    if !installed {
         return (false, None);
     }
 

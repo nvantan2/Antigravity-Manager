@@ -14,7 +14,7 @@ use tracing::{debug, error, info};
 
 use crate::proxy::mappers::claude::{
     transform_claude_request_in, transform_response, create_claude_sse_stream, ClaudeRequest,
-    close_tool_loop_for_thinking,
+    close_tool_loop_for_thinking, clean_cache_control_from_messages,
 };
 use crate::proxy::server::AppState;
 use axum::http::HeaderMap;
@@ -400,6 +400,10 @@ pub async fn handle_messages(
         }
     };
 
+    // [CRITICAL FIX] 预先清理所有消息中的 cache_control 字段 (Issue #744)
+    // 必须在序列化之前处理，以确保 z.ai 和 Google Flow 都不受历史消息缓存标记干扰
+    clean_cache_control_from_messages(&mut request.messages);
+
     // [CRITICAL FIX] 过滤并修复 Thinking 块签名
     filter_invalid_thinking_blocks(&mut request.messages);
 
@@ -694,13 +698,17 @@ pub async fn handle_messages(
     
     let method = if actual_stream { "streamGenerateContent" } else { "generateContent" };
     let query = if actual_stream { Some("alt=sse") } else { None };
+        // [FIX #765] Prepare Beta Headers for Thinking + Tools
+        let mut extra_headers = std::collections::HashMap::new();
+        if request_with_mapped.thinking.is_some() && request_with_mapped.tools.is_some() {
+            extra_headers.insert("anthropic-beta".to_string(), "interleaved-thinking-2025-05-14".to_string());
+            tracing::debug!("[{}] Added Beta Header: interleaved-thinking-2025-05-14", trace_id);
+        }
 
-    let response = match upstream.call_v1_internal(
-        method,
-        &access_token,
-        gemini_body,
-        query
-    ).await {
+        // 5. 上游调用
+        let response = match upstream
+            .call_v1_internal_with_headers(method, &access_token, gemini_body, query, extra_headers.clone())
+            .await {
             Ok(r) => r,
             Err(e) => {
                 last_error = e.clone();
@@ -829,7 +837,9 @@ pub async fn handle_messages(
                 let context_limit = crate::proxy::mappers::claude::utils::get_context_limit_for_model(&request_with_mapped.model);
 
                 // 转换
-                let claude_response = match transform_response(&gemini_response, scaling_enabled, context_limit) {
+                // [FIX #765] Pass session_id and model_name for signature caching
+                let s_id_owned = session_id.map(|s| s.to_string());
+                let claude_response = match transform_response(&gemini_response, scaling_enabled, context_limit, s_id_owned, request_with_mapped.model.clone()) {
                     Ok(r) => r,
                     Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, format!("Transform error: {}", e)).into_response(),
                 };
@@ -1225,14 +1235,16 @@ fn select_background_model(task_type: BackgroundTaskType) -> &'static str {
 /// 2. tool_result 内容为 "Warmup" 错误
 /// 3. 消息循环模式：助手发送工具调用，用户返回 Warmup 错误
 fn is_warmup_request(request: &ClaudeRequest) -> bool {
-    // 检查最近的消息是否包含 Warmup 特征
-    let mut warmup_tool_result_count = 0;
-    let mut total_tool_results = 0;
+    // [FIX] Only check the LATEST message for Warmup characteristics.
+    // Scanning history (take(10)) caused a "poisoned session" bug where one historical Warmup
+    // message would cause all subsequent user inputs (e.g. "Continue") to be intercepted 
+    // and replied with "OK".
     
-    for msg in request.messages.iter().rev().take(10) {
+    if let Some(msg) = request.messages.last() {
+        // We only care if the *current* trigger is a Warmup
         match &msg.content {
             crate::proxy::mappers::claude::models::MessageContent::String(s) => {
-                // 简单文本消息：检查是否以 Warmup 开头
+                // Check if simple text starts with Warmup (and is short)
                 if s.trim().starts_with("Warmup") && s.len() < 100 {
                     return true;
                 }
@@ -1240,33 +1252,25 @@ fn is_warmup_request(request: &ClaudeRequest) -> bool {
             crate::proxy::mappers::claude::models::MessageContent::Array(arr) => {
                 for block in arr {
                     match block {
-                        // 检查 text block 是否为 Warmup
                         crate::proxy::mappers::claude::models::ContentBlock::Text { text } => {
                             let trimmed = text.trim();
                             if trimmed == "Warmup" || trimmed.starts_with("Warmup\n") {
                                 return true;
                             }
                         },
-                        // 检查 tool_result 是否返回 Warmup 错误
                         crate::proxy::mappers::claude::models::ContentBlock::ToolResult { 
                             content, is_error, .. 
                         } => {
-                            total_tool_results += 1;
-                            // content 是 serde_json::Value，需要转换为字符串检查
+                            // Check tool result errors
                             let content_str = if let Some(s) = content.as_str() {
                                 s.to_string()
                             } else {
                                 content.to_string()
                             };
-                            if content_str.contains("Warmup") {
-                                warmup_tool_result_count += 1;
-                                // 如果是错误且内容为 Warmup，很可能是 warmup 请求
-                                if *is_error == Some(true) && content_str.trim().starts_with("Warmup") {
-                                    // 如果连续多个 tool_result 都是 Warmup 错误，确认为 warmup 请求
-                                    if warmup_tool_result_count >= 2 {
-                                        return true;
-                                    }
-                                }
+                            
+                            // If it's an error and starts with Warmup, it's a warmup signal
+                            if *is_error == Some(true) && content_str.trim().starts_with("Warmup") {
+                                return true;
                             }
                         },
                         _ => {}
@@ -1274,11 +1278,6 @@ fn is_warmup_request(request: &ClaudeRequest) -> bool {
                 }
             }
         }
-    }
-    
-    // 如果大多数 tool_result 都是 Warmup 错误，确认为 warmup 请求
-    if total_tool_results >= 3 && warmup_tool_result_count >= total_tool_results / 2 {
-        return true;
     }
     
     false
