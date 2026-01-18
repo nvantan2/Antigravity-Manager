@@ -20,6 +20,7 @@ pub struct ProxyRequestLog {
     pub response_body: Option<String>,
     pub input_tokens: Option<u32>,
     pub output_tokens: Option<u32>,
+    pub protocol: Option<String>,     // 协议类型: "openai", "anthropic", "gemini"
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -125,6 +126,7 @@ impl ProxyMonitor {
                 response_body: None, // Don't send body in event
                 input_tokens: log.input_tokens,
                 output_tokens: log.output_tokens,
+                protocol: log.protocol.clone(),
             };
             let _ = app.emit("proxy://request", &log_summary);
         }

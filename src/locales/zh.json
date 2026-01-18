@@ -704,6 +704,7 @@
             "status": "状态",
             "method": "方法",
             "model": "模型",
+            "protocol": "协议",
             "account": "账号",
             "path": "路径",
             "usage": "Token 消耗",
@@ -719,7 +720,11 @@
             "tokens": "Token 消耗 (输入/输出)",
             "time": "请求时间",
             "model": "使用模型",
-            "id": "请求 ID"
+            "mapped_model": "映射模型",
+            "protocol": "请求协议",
+            "account_used": "使用账号",
+            "id": "请求 ID",
+            "payload_empty": "无数据"
         },
         "dialog": {
             "clear_title": "清除监控日志",

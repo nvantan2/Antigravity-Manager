@@ -704,6 +704,7 @@
             "status": "Status",
             "method": "Method",
             "model": "Model",
+            "protocol": "Protocol",
             "account": "Account",
             "path": "Path",
             "usage": "Tokens",
@@ -719,7 +720,11 @@
             "tokens": "Tokens (I/O)",
             "time": "Time",
             "model": "Model",
-            "id": "Request ID"
+            "mapped_model": "Mapped Model",
+            "protocol": "Protocol",
+            "account_used": "Account Used",
+            "id": "Request ID",
+            "payload_empty": "No data"
         },
         "dialog": {
             "clear_title": "Clear Proxy Logs",

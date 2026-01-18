@@ -700,6 +700,7 @@
             "status": "Status",
             "method": "Método",
             "model": "Modelo",
+            "protocol": "Protocolo",
             "account": "Conta",
             "path": "Caminho",
             "usage": "Tokens",
@@ -715,7 +716,11 @@
             "tokens": "Tokens (E/S)",
             "time": "Tempo",
             "model": "Modelo",
-            "id": "ID da Solicitação"
+            "id": "ID da Solicitação",
+            "protocol": "Protocolo",
+            "mapped_model": "Modelo Mapeado",
+            "account_used": "Conta Utilizada",
+            "payload_empty": "Sem Carga"
         },
         "dialog": {
             "clear_title": "Limpar Logs do Proxy",

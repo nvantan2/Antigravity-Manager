@@ -666,6 +666,7 @@
             "status": "Durum",
             "method": "Metot",
             "model": "Model",
+            "protocol": "Protokol",
             "account": "Hesap",
             "path": "Yol",
             "usage": "Token'lar",
@@ -681,7 +682,11 @@
             "tokens": "Token'lar (G/Ç)",
             "time": "Zaman",
             "model": "Model",
-            "id": "İstek Kimliği"
+            "id": "İstek Kimliği",
+            "protocol": "Protokol",
+            "mapped_model": "Eşlenen Model",
+            "account_used": "Kullanılan Hesap",
+            "payload_empty": "Yük Yok"
         },
         "dialog": {
             "clear_title": "Proxy Loglarını Temizle",
