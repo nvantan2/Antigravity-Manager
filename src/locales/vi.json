@@ -317,7 +317,7 @@
             "delete_msg": "Bạn có chắc chắn muốn xóa tài khoản này? Hành động này không thể hoàn tác.",
             "refresh_title": "Làm mới Hạn mức",
             "batch_refresh_title": "Làm mới Hàng loạt",
-            "refresh_msg": "Bạn có chắc chắn muốn làm mới hạn mức cho tài khoản hiện đài?",
+            "refresh_msg": "Bạn có chắc chắn muốn làm mới hạn mức cho tài khoản hiện tại?",
             "batch_refresh_msg": "Bạn có chắc muốn làm mới hạn mức cho {{count}} tài khoản đã chọn? Việc này có thể mất chút thời gian.",
             "disable_proxy_title": "Tắt Proxy",
             "disable_proxy_msg": "Bạn có chắc muốn tắt proxy cho tài khoản này? Tài khoản vẫn dùng được trong app nhưng sẽ không nhận traffic từ proxy.",
