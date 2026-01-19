@@ -14,6 +14,7 @@ pub mod device;
 pub mod update_checker;
 pub mod scheduler;
 pub mod http_api;
+pub mod token_stats;
 
 use crate::models;
 

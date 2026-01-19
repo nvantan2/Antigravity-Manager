@@ -39,6 +39,7 @@
         "accounts": "Accounts",
         "proxy": "API Proxy",
         "call_records": "Traffic Logs",
+        "token_stats": "Token Stats",
         "settings": "Settings",
         "theme_to_dark": "Switch to Dark Mode",
         "theme_to_light": "Switch to Light Mode",

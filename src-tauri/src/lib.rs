@@ -58,6 +58,8 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec!["--minimized"]),
         ))
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             let _ = app.get_webview_window("main")
                 .map(|window| {
@@ -231,6 +233,12 @@ pub fn run() {
             // HTTP API 设置命令
             commands::get_http_api_settings,
             commands::save_http_api_settings,
+            // Token 统计命令
+            commands::get_token_stats_hourly,
+            commands::get_token_stats_daily,
+            commands::get_token_stats_weekly,
+            commands::get_token_stats_by_account,
+            commands::get_token_stats_summary,
             proxy::cli_sync::get_cli_sync_status,
             proxy::cli_sync::execute_cli_sync,
             proxy::cli_sync::execute_cli_restore,

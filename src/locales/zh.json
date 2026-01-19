@@ -39,6 +39,7 @@
         "accounts": "账号管理",
         "proxy": "API 反代",
         "call_records": "流量日志",
+        "token_stats": "Token 统计",
         "settings": "设置",
         "theme_to_dark": "切换到深色模式",
         "theme_to_light": "切换到浅色模式",

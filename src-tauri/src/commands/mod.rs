@@ -777,3 +777,36 @@ pub async fn save_http_api_settings(
 ) -> Result<(), String> {
     crate::modules::http_api::save_settings(&settings)
 }
+
+// ============================================================================
+// Token Statistics Commands
+// ============================================================================
+
+pub use crate::modules::token_stats::{
+    TokenStatsAggregated, AccountTokenStats, TokenStatsSummary
+};
+
+#[tauri::command]
+pub async fn get_token_stats_hourly(hours: i64) -> Result<Vec<TokenStatsAggregated>, String> {
+    crate::modules::token_stats::get_hourly_stats(hours)
+}
+
+#[tauri::command]
+pub async fn get_token_stats_daily(days: i64) -> Result<Vec<TokenStatsAggregated>, String> {
+    crate::modules::token_stats::get_daily_stats(days)
+}
+
+#[tauri::command]
+pub async fn get_token_stats_weekly(weeks: i64) -> Result<Vec<TokenStatsAggregated>, String> {
+    crate::modules::token_stats::get_weekly_stats(weeks)
+}
+
+#[tauri::command]
+pub async fn get_token_stats_by_account(hours: i64) -> Result<Vec<AccountTokenStats>, String> {
+    crate::modules::token_stats::get_account_stats(hours)
+}
+
+#[tauri::command]
+pub async fn get_token_stats_summary(hours: i64) -> Result<TokenStatsSummary, String> {
+    crate::modules::token_stats::get_summary_stats(hours)
+}
