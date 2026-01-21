@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Save, Github, User, MessageCircle, ExternalLink, RefreshCw, Sparkles, Heart, Coffee } from 'lucide-react';
 import { request as invoke } from '../utils/request';
-import { open } from '@tauri-apps/plugin-dialog';
 import { useConfigStore } from '../stores/useConfigStore';
 import { AppConfig } from '../types/config';
 import ModalDialog from '../components/common/ModalDialog';
@@ -136,7 +135,8 @@ function Settings() {
 
     const handleOpenDataDir = async () => {
         try {
-            await invoke('open_data_folder');
+            const path = await invoke<string>('open_data_folder');
+            showToast(path, 'info');
         } catch (error) {
             showToast(`${t('common.error')}: ${error}`, 'error');
         }
@@ -144,13 +144,11 @@ function Settings() {
 
     const handleSelectExportPath = async () => {
         try {
-            // @ts-ignore
-            const selected = await open({
-                directory: true,
-                multiple: false,
-                title: t('settings.advanced.export_path'),
-            });
-            if (selected && typeof selected === 'string') {
+            const selected = window.prompt(
+                t('settings.advanced.export_path'),
+                formData.default_export_path || ''
+            );
+            if (selected) {
                 setFormData({ ...formData, default_export_path: selected });
             }
         } catch (error) {
@@ -160,12 +158,11 @@ function Settings() {
 
     const handleSelectAntigravityPath = async () => {
         try {
-            const selected = await open({
-                directory: false,
-                multiple: false,
-                title: t('settings.advanced.antigravity_path_select'),
-            });
-            if (selected && typeof selected === 'string') {
+            const selected = window.prompt(
+                t('settings.advanced.antigravity_path_select'),
+                formData.antigravity_executable || ''
+            );
+            if (selected) {
                 setFormData({ ...formData, antigravity_executable: selected });
             }
         } catch (error) {
@@ -897,7 +894,7 @@ function Settings() {
                                 {/* Tech Stack Badges */}
                                 <div className="flex gap-2 justify-center">
                                     <div className="px-3 py-1 bg-gray-50 dark:bg-base-200 rounded-lg text-xs font-medium text-gray-500 dark:text-gray-400 border border-gray-100 dark:border-base-300">
-                                        Tauri v2
+                                        Axum
                                     </div>
                                     <div className="px-3 py-1 bg-gray-50 dark:bg-base-200 rounded-lg text-xs font-medium text-gray-500 dark:text-gray-400 border border-gray-100 dark:border-base-300">
                                         React 19
@@ -967,7 +964,6 @@ function Settings() {
 
                 {/* Support Modal */}
                 <div className={`modal ${isSupportModalOpen ? 'modal-open' : ''} z-[100]`}>
-                    <div data-tauri-drag-region className="fixed top-0 left-0 right-0 h-8 z-[110]" />
                     <div className="modal-box relative max-w-2xl bg-white dark:bg-base-100 shadow-2xl rounded-3xl p-0 overflow-hidden transform transition-all animate-in fade-in zoom-in-95 duration-300">
                         <div className="flex flex-col items-center p-8">
                             <div className="w-16 h-16 bg-pink-50 dark:bg-pink-900/20 rounded-2xl flex items-center justify-center mb-6 shadow-sm">

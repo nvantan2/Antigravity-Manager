@@ -1,7 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { save, open } from '@tauri-apps/plugin-dialog';
-import { request as invoke } from '../utils/request';
-import { join } from '@tauri-apps/api/path';
+import { downloadTextFile, pickTextFile } from '../utils/fileUtils';
 import { Search, RefreshCw, Download, Upload, Trash2, LayoutGrid, List, ToggleLeft, ToggleRight, Sparkles } from 'lucide-react';
 import { useAccountStore } from '../stores/useAccountStore';
 import { useConfigStore } from '../stores/useConfigStore';
@@ -469,30 +467,9 @@ function Accounts() {
             }));
             const content = JSON.stringify(exportData, null, 2);
 
-            let path: string | null = null;
-
-            // 2. Determine Path
-            if (config?.default_export_path) {
-                // Use default path
-                const fileName = `antigravity_accounts_${new Date().toISOString().split('T')[0]}.json`;
-                path = await join(config.default_export_path, fileName);
-            } else {
-                // Use Native Dialog
-                path = await save({
-                    filters: [{
-                        name: 'JSON',
-                        extensions: ['json']
-                    }],
-                    defaultPath: `antigravity_accounts_${new Date().toISOString().split('T')[0]}.json`
-                });
-            }
-
-            if (!path) return; // Cancelled
-
-            // 3. Write File
-            await invoke('save_text_file', { path, content });
-
-            showToast(`${t('common.success')} ${path}`, 'success');
+            const filename = `antigravity_accounts_${new Date().toISOString().split('T')[0]}.json`;
+            downloadTextFile(filename, content);
+            showToast(`${t('common.success')} ${filename}`, 'success');
         } catch (error) {
             console.error('Export failed:', error);
             showToast(`${t('common.error')}: ${error}`, 'error');
@@ -517,16 +494,9 @@ function Accounts() {
 
     const handleImportJson = async () => {
         try {
-            const selected = await open({
-                multiple: false,
-                filters: [{
-                    name: 'JSON',
-                    extensions: ['json']
-                }]
-            });
-            if (!selected || typeof selected !== 'string') return;
-
-            const content: string = await invoke('read_text_file', { path: selected });
+            const selected = await pickTextFile('.json');
+            if (!selected) return;
+            const content = selected.content;
 
             let importData: Array<{ email?: string; refresh_token?: string }>;
             try {

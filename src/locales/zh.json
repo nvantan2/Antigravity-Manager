@@ -31,7 +31,6 @@
         "accounts": "个账号",
         "enabled": "已启用",
         "disabled": "已禁用",
-        "tauri_api_not_loaded": "Tauri API 未正确加载,请重启应用",
         "environment_error": "环境错误: {{error}}"
     },
     "nav": {

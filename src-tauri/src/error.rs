@@ -12,9 +12,6 @@ pub enum AppError {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 
-    #[error("Tauri error: {0}")]
-    Tauri(#[from] tauri::Error),
-
     #[error("OAuth error: {0}")]
     OAuth(String),
 
@@ -28,7 +25,7 @@ pub enum AppError {
     Unknown(String),
 }
 
-// Implement Serialize so it can be used as a return value for Tauri commands
+// Implement Serialize so it can be used as a return value for web commands
 impl Serialize for AppError {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

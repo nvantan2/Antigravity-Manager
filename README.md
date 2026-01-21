@@ -10,7 +10,6 @@
     <a href="https://github.com/lbjlaq/Antigravity-Manager">
       <img src="https://img.shields.io/badge/Version-3.3.46-blue?style=flat-square" alt="Version">
     </a>
-    <img src="https://img.shields.io/badge/Tauri-v2-orange?style=flat-square" alt="Tauri">
     <img src="https://img.shields.io/badge/Backend-Rust-red?style=flat-square" alt="Rust">
     <img src="https://img.shields.io/badge/Frontend-React-61DAFB?style=flat-square" alt="React">
     <img src="https://img.shields.io/badge/License-CC--BY--NC--SA--4.0-lightgrey?style=flat-square" alt="License">
@@ -186,6 +185,13 @@ Copyright © 2024-2026 [lbjlaq](https://github.com/lbjlaq)
 
 ## 🔌 快速接入示例
 
+### 启动 Web 服务端 (源码)
+1. 进入 `src-tauri` 并运行：
+```bash
+cargo run --bin web_server
+```
+2. 访问 `http://localhost:1420` 打开 Web UI。
+
 ### 🔐 OAuth 授权流程（添加账号）
 1. 打开“Accounts / 账号” → “添加账号” → “OAuth”。
 2. 弹窗会在点击按钮前预生成授权链接；点击链接即可复制到系统剪贴板，然后用你希望的浏览器打开并完成授权。
@@ -274,7 +280,7 @@ print(response.choices[0].message.content)
             - **冗余清理**: 修复了 `ja.json` 和 `vi.json` 中由于历史 PR 累积导致的重复键（Duplicate Keys）警告，提升了翻译规范性。
             - **标点同步**: 统一清除了各语言翻译中误用的全角标点，确保 UI 展示的一致性。
         - **[核心功能] 客户端热更新与 Token 统计系统 (PR #846 by @lengjingxu)**:
-            - **热更新 (Native Updater)**: 集成 Tauri v2 原生更新插件，支持自动检测、下载、安装及重启，实现客户端无感升级。
+            - **热更新 (Updater)**: 集成原生更新模块，支持自动检测、下载、安装及重启，实现客户端无感升级。
             - **Token 消费可视化**: 新增基于 SQLite 实现的 Token 统计持久化模块，支持按小时/日/周维度查看总消耗及各账号占比。
             - **UI/UX 增强**: 优化了图表悬浮提示 (Tooltip) 在深色模式下的对比度，隐藏了冗余的 hover 高亮；补全了 8 语言完整翻译并修复了硬编码图例。
             - **集成修复**: 在本地合并期间修复了 PR 原始代码中缺失插件配置导致的启动崩溃故障。
@@ -451,7 +457,7 @@ print(response.choices[0].message.content)
             - **影响范围**: 彻底解决了使用 Thinking 模型（如 Claude 4.5 Opus / Sonnet）在多轮对话中触发的 400 签名错误，以及由此导致的 "Error searching files" 任务卡死问题 (Issue #737)。
         - **API 监控看板刷新修复 (Fix Issue #735)**:
             - **问题根源**: 修复了 `ProxyMonitor` 组件中因 Closure 导致的事件监听失效问题，该问题导致新请求无法自动显示在列表中。
-            - **修复内容**: 引入 `useRef` 优化事件缓冲逻辑，并新增手动刷新按钮作为备份方案；同时在 Tauri 权限配置中显式允许了事件监听。
+            - **修复内容**: 引入 `useRef` 优化事件缓冲逻辑，并新增手动刷新按钮作为备份方案；同时在权限配置中显式允许了事件监听。
         - **严格分组配额保护修复 (Strict Grouped Quota Protection Fix - Core Thanks to @Mag1cFall PR #746)**:
             - **问题根源**: 修复了在严格匹配模式下，配额保护逻辑因大小写敏感和前端 UI 键名映射缺失而失效的问题。之前版本中 `gemini-pro` 等 UI 简写键名无法匹配到后端定义的 `gemini-3-pro-high` 严格组。
             - **修复内容**:

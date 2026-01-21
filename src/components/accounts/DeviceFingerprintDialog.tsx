@@ -153,7 +153,6 @@ export default function DeviceFingerprintDialog({ account, onClose }: DeviceFing
 
     return createPortal(
         <div className="modal modal-open z-[120]">
-            <div data-tauri-drag-region className="fixed top-0 left-0 right-0 h-8 z-[130]" />
             <div className="modal-box relative max-w-3xl bg-white dark:bg-base-100 shadow-2xl rounded-2xl p-0 overflow-hidden">
                 <div className="px-6 py-5 border-b border-gray-100 dark:border-base-200 bg-gray-50/50 dark:bg-base-200/50 flex justify-between items-center">
                     <div className="flex items-center gap-3">

@@ -6,8 +6,7 @@ import { useAccountStore } from '../stores/useAccountStore';
 import CurrentAccount from '../components/dashboard/CurrentAccount';
 import BestAccounts from '../components/dashboard/BestAccounts';
 import AddAccountDialog from '../components/accounts/AddAccountDialog';
-import { save } from '@tauri-apps/plugin-dialog';
-import { request as invoke } from '../utils/request';
+import { downloadTextFile } from '../utils/fileUtils';
 import { showToast } from '../components/common/ToastContainer';
 import { Account } from '../types/account';
 
@@ -117,26 +116,15 @@ function Dashboard() {
                 return;
             }
 
-            const path = await save({
-                filters: [{
-                    name: 'JSON',
-                    extensions: ['json']
-                }],
-                defaultPath: `antigravity_accounts_${new Date().toISOString().split('T')[0]}.json`
-            });
-
-            if (!path) return;
-
             const exportData = accountsToExport.map(acc => ({
                 email: acc.email,
                 refresh_token: acc.token.refresh_token
             }));
 
             const content = JSON.stringify(exportData, null, 2);
-
-            await invoke('save_text_file', { path, content });
-
-            showToast(t('dashboard.toast.export_success', { path }), 'success');
+            const filename = `antigravity_accounts_${new Date().toISOString().split('T')[0]}.json`;
+            downloadTextFile(filename, content);
+            showToast(t('dashboard.toast.export_success', { path: filename }), 'success');
         } catch (error) {
             console.error('Export failed:', error);
             showToast(`${t('dashboard.toast.export_error')}: ${error}`, 'error');

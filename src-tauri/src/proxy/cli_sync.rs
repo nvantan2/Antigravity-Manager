@@ -117,7 +117,7 @@ pub fn check_cli_installed(app: &CliApp) -> (bool, Option<String>) {
     };
 
     // [FIX #765] macOS 增强检测: 如果 which 失败,显式搜索常用二进制路径
-    // 解决 Tauri 进程 PATH 可能不完整导致检测不到已安装 CLI 的问题
+    // 解决桌面进程 PATH 可能不完整导致检测不到已安装 CLI 的问题
     if !installed && !cfg!(target_os = "windows") {
         let home = dirs::home_dir().unwrap_or_default();
         let mut common_paths = vec![
@@ -399,9 +399,8 @@ pub fn sync_config(app: &CliApp, proxy_url: &str, api_key: &str) -> Result<(), S
     Ok(())
 }
 
-// Tauri Commands
+// Web Commands
 
-#[tauri::command]
 pub async fn get_cli_sync_status(app_type: CliApp, proxy_url: String) -> Result<CliStatus, String> {
     let (installed, version) = check_cli_installed(&app_type);
     let (is_synced, has_backup, current_base_url) = if installed {
@@ -420,12 +419,10 @@ pub async fn get_cli_sync_status(app_type: CliApp, proxy_url: String) -> Result<
     })
 }
 
-#[tauri::command]
 pub async fn execute_cli_sync(app_type: CliApp, proxy_url: String, api_key: String) -> Result<(), String> {
     sync_config(&app_type, &proxy_url, &api_key)
 }
 
-#[tauri::command]
 pub async fn execute_cli_restore(app_type: CliApp) -> Result<(), String> {
     let files = app_type.config_files();
     let mut restored_count = 0;
@@ -453,7 +450,6 @@ pub async fn execute_cli_restore(app_type: CliApp) -> Result<(), String> {
     sync_config(&app_type, default_url, "")
 }
 
-#[tauri::command]
 pub async fn get_cli_config_content(app_type: CliApp, file_name: Option<String>) -> Result<String, String> {
     let files = app_type.config_files();
     let file = if let Some(name) = file_name {

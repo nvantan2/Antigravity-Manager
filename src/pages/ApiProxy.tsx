@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { invoke } from '@tauri-apps/api/core';
+import { request } from '../utils/request';
 import {
     Power,
     Copy,
@@ -200,7 +200,7 @@ export default function ApiProxy() {
     // [FIX #820] Load available accounts for fixed account mode
     const loadAccounts = async () => {
         try {
-            const accounts = await invoke<Array<{ id: string; email: string }>>('list_accounts');
+            const accounts = await request<Array<{ id: string; email: string }>>('list_accounts');
             setAvailableAccounts(accounts.map(a => ({ id: a.id, email: a.email })));
         } catch (error) {
             console.error('Failed to load accounts:', error);
@@ -210,7 +210,7 @@ export default function ApiProxy() {
     // [FIX #820] Load current preferred account
     const loadPreferredAccount = async () => {
         try {
-            const prefId = await invoke<string | null>('get_preferred_account');
+            const prefId = await request<string | null>('get_preferred_account');
             setPreferredAccountId(prefId);
         } catch (error) {
             // Service not running, ignore
@@ -221,7 +221,7 @@ export default function ApiProxy() {
     const handleSetPreferredAccount = async (accountId: string | null) => {
         try {
             const wasEnabled = preferredAccountId !== null;
-            await invoke('set_preferred_account', { accountId });
+            await request('set_preferred_account', { accountId });
             setPreferredAccountId(accountId);
 
             // Determine appropriate message
@@ -250,7 +250,7 @@ export default function ApiProxy() {
         setConfigLoading(true);
         setConfigError(null);
         try {
-            const config = await invoke<AppConfig>('load_config');
+            const config = await request<AppConfig>('load_config');
             setAppConfig(config);
         } catch (error) {
             console.error('加载配置失败:', error);
@@ -262,7 +262,7 @@ export default function ApiProxy() {
 
     const loadStatus = async () => {
         try {
-            const s = await invoke<ProxyStatus>('get_proxy_status');
+            const s = await request<ProxyStatus>('get_proxy_status');
             setStatus(s);
         } catch (error) {
             console.error('获取状态失败:', error);
@@ -271,7 +271,7 @@ export default function ApiProxy() {
 
     const saveConfig = async (newConfig: AppConfig) => {
         try {
-            await invoke('save_config', { config: newConfig });
+            await request('save_config', { config: newConfig });
             setAppConfig(newConfig);
         } catch (error) {
             console.error('保存配置失败:', error);
@@ -289,7 +289,7 @@ export default function ApiProxy() {
         newConfig.custom_mapping = { ...(newConfig.custom_mapping || {}), [key]: value };
 
         try {
-            await invoke('update_model_mapping', { config: newConfig });
+            await request('update_model_mapping', { config: newConfig });
             setAppConfig({ ...appConfig, proxy: newConfig });
             console.log('[DEBUG] Mapping updated successfully');
             showToast(t('common.saved'), 'success');
@@ -315,7 +315,7 @@ export default function ApiProxy() {
         };
 
         try {
-            await invoke('update_model_mapping', { config: newConfig });
+            await request('update_model_mapping', { config: newConfig });
             setAppConfig({ ...appConfig, proxy: newConfig });
             showToast(t('common.success'), 'success');
         } catch (error) {
@@ -351,7 +351,7 @@ export default function ApiProxy() {
         };
 
         try {
-            await invoke('update_model_mapping', { config: newConfig });
+            await request('update_model_mapping', { config: newConfig });
             setAppConfig({ ...appConfig, proxy: newConfig });
             showToast(t('proxy.router.presets_applied'), 'success');
         } catch (error) {
@@ -366,7 +366,7 @@ export default function ApiProxy() {
         delete newCustom[key];
         const newConfig = { ...appConfig.proxy, custom_mapping: newCustom };
         try {
-            await invoke('update_model_mapping', { config: newConfig });
+            await request('update_model_mapping', { config: newConfig });
             setAppConfig({ ...appConfig, proxy: newConfig });
         } catch (error) {
             console.error('Failed to remove custom mapping:', error);
@@ -422,7 +422,7 @@ export default function ApiProxy() {
     const executeClearSessionBindings = async () => {
         setIsClearBindingsConfirmOpen(false);
         try {
-            await invoke('clear_proxy_session_bindings');
+            await request('clear_proxy_session_bindings');
             showToast(t('common.success'), 'success');
         } catch (error) {
             console.error('Failed to clear session bindings:', error);
@@ -435,7 +435,7 @@ export default function ApiProxy() {
         setZaiModelsLoading(true);
         setZaiModelsError(null);
         try {
-            const models = await invoke<string[]>('fetch_zai_models', {
+            const models = await request<string[]>('fetch_zai_models', {
                 zai: appConfig.proxy.zai,
                 upstreamProxy: appConfig.proxy.upstream_proxy,
                 requestTimeout: appConfig.proxy.request_timeout,
@@ -521,10 +521,10 @@ export default function ApiProxy() {
         setLoading(true);
         try {
             if (status.running) {
-                await invoke('stop_proxy_service');
+                await request('stop_proxy_service');
             } else {
                 // 使用当前的 appConfig.proxy 启动
-                await invoke('start_proxy_service', { config: appConfig.proxy });
+                await request('start_proxy_service', { config: appConfig.proxy });
             }
             await loadStatus();
         } catch (error: any) {
@@ -541,7 +541,7 @@ export default function ApiProxy() {
     const executeGenerateApiKey = async () => {
         setIsRegenerateKeyConfirmOpen(false);
         try {
-            const newKey = await invoke<string>('generate_api_key');
+            const newKey = await request<string>('generate_api_key');
             updateProxyConfig({ api_key: newKey });
             showToast(t('common.success'), 'success');
         } catch (error: any) {

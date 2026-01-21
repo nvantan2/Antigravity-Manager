@@ -1,7 +1,6 @@
 use serde::{Serialize, Deserialize};
 use std::collections::VecDeque;
 use tokio::sync::RwLock;
-use tauri::Emitter;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -35,11 +34,10 @@ pub struct ProxyMonitor {
     pub stats: RwLock<ProxyStats>,
     pub max_logs: usize,
     pub enabled: AtomicBool,
-    app_handle: Option<tauri::AppHandle>,
 }
 
 impl ProxyMonitor {
-    pub fn new(max_logs: usize, app_handle: Option<tauri::AppHandle>) -> Self {
+    pub fn new(max_logs: usize) -> Self {
         // Initialize DB
         if let Err(e) = crate::modules::proxy_db::init_db() {
             tracing::error!("Failed to initialize proxy DB: {}", e);
@@ -64,7 +62,6 @@ impl ProxyMonitor {
             stats: RwLock::new(ProxyStats::default()),
             max_logs,
             enabled: AtomicBool::new(false), // Default to disabled
-            app_handle,
         }
     }
 
@@ -135,27 +132,7 @@ impl ProxyMonitor {
             }
         });
 
-        // Emit event (send summary only, without body to reduce memory)
-        if let Some(app) = &self.app_handle {
-            let log_summary = ProxyRequestLog {
-                id: log.id.clone(),
-                timestamp: log.timestamp,
-                method: log.method.clone(),
-                url: log.url.clone(),
-                status: log.status,
-                duration: log.duration,
-                model: log.model.clone(),
-                mapped_model: log.mapped_model.clone(),
-                account_email: log.account_email.clone(),
-                error: log.error.clone(),
-                request_body: None,  // Don't send body in event
-                response_body: None, // Don't send body in event
-                input_tokens: log.input_tokens,
-                output_tokens: log.output_tokens,
-                protocol: log.protocol.clone(),
-            };
-            let _ = app.emit("proxy://request", &log_summary);
-        }
+        // No UI event emission in web-only mode.
     }
 
     pub async fn get_logs(&self, limit: usize) -> Vec<ProxyRequestLog> {

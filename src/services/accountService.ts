@@ -2,15 +2,6 @@ import i18n from '../i18n';
 import { request as invoke } from '../utils/request';
 import { Account, QuotaData, DeviceProfile, DeviceProfileVersion } from '../types/account';
 
-// 检查 Tauri 环境
-function ensureTauriEnvironment() {
-    // 只检查 invoke 函数是否可用
-    // 不检查 __TAURI__ 对象,因为在某些 Tauri 版本中可能不存在
-    if (typeof invoke !== 'function') {
-        throw new Error(i18n.t('common.tauri_api_not_loaded'));
-    }
-}
-
 export async function listAccounts(): Promise<Account[]> {
     return await invoke('list_accounts');
 }
@@ -51,29 +42,21 @@ export async function refreshAllQuotas(): Promise<RefreshStats> {
 }
 
 // OAuth
-export async function startOAuthLogin(): Promise<Account> {
-    ensureTauriEnvironment();
-
+export async function startOAuthLogin(redirectUri: string): Promise<string> {
     try {
-        return await invoke('start_oauth_login');
+        const res = await invoke<{ auth_url: string }>('start_oauth_login', { redirectUri });
+        return res.auth_url;
     } catch (error) {
-        // 增强错误信息
         if (typeof error === 'string') {
-            // 如果是 refresh_token 缺失错误,保持原样(已包含详细说明)
-            if (error.includes('Refresh Token') || error.includes('refresh_token')) {
-                throw error;
-            }
-            // 其他错误添加上下文
             throw i18n.t('accounts.add.oauth_error', { error });
         }
         throw error;
     }
 }
 
-export async function completeOAuthLogin(): Promise<Account> {
-    ensureTauriEnvironment();
+export async function completeOAuthLogin(code: string, redirectUri: string): Promise<Account> {
     try {
-        return await invoke('complete_oauth_login');
+        return await invoke('complete_oauth_login', { code, redirectUri });
     } catch (error) {
         if (typeof error === 'string') {
             if (error.includes('Refresh Token') || error.includes('refresh_token')) {
@@ -86,7 +69,6 @@ export async function completeOAuthLogin(): Promise<Account> {
 }
 
 export async function cancelOAuthLogin(): Promise<void> {
-    ensureTauriEnvironment();
     return await invoke('cancel_oauth_login');
 }
 
@@ -170,4 +152,3 @@ export async function warmUpAllAccounts(): Promise<string> {
 export async function warmUpAccount(accountId: string): Promise<string> {
     return await invoke('warm_up_account', { accountId });
 }
-

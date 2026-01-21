@@ -11,7 +11,6 @@
     <a href="https://github.com/lbjlaq/Antigravity-Manager">
       <img src="https://img.shields.io/badge/Version-3.3.46-blue?style=flat-square" alt="Version">
     </a>
-    <img src="https://img.shields.io/badge/Tauri-v2-orange?style=flat-square" alt="Tauri">
     <img src="https://img.shields.io/badge/Backend-Rust-red?style=flat-square" alt="Rust">
     <img src="https://img.shields.io/badge/Frontend-React-61DAFB?style=flat-square" alt="React">
     <img src="https://img.shields.io/badge/License-CC--BY--NC--SA--4.0-lightgrey?style=flat-square" alt="License">
@@ -175,6 +174,13 @@ sudo xattr -rd com.apple.quarantine "/Applications/Antigravity Tools.app"
 
 ## 🔌 Quick Integration Examples
 
+### Start Web Server (Source)
+1. Enter `src-tauri` and run:
+```bash
+cargo run --bin web_server
+```
+2. Visit `http://localhost:1420` to open the Web UI.
+
 ### 🔐 OAuth Authorization Flow (Add Account)
 1. Go to `Accounts` → `Add Account` → `OAuth`.
 2. The dialog pre-generates an authorization URL before you click any button. Click the URL to copy it to the system clipboard, then open it in the browser you prefer and complete authorization.
@@ -258,7 +264,7 @@ print(response.choices[0].message.content)
             - **Redundant Key Cleanup**: Fixed "Duplicate Keys" lint warnings in `ja.json` and `vi.json` caused by historical PR accumulation.
             - **Punctuation Sync**: Standardized punctuation across Russian and Portuguese translations, removing accidentally used full-width Chinese punctuation.
         - **[Core Feature] Client Hot Update & Token Statistics (PR #846 by @lengjingxu)**:
-            - **Native Updater**: Integrated Tauri v2 native update plugin, supporting automatic detection, downloading, installation, and restarting for seamless client upgrades.
+            - **Native Updater**: Integrated native update module, supporting automatic detection, downloading, installation, and restarting for seamless client upgrades.
             - **Token Consumption Visualization**: Added an SQLite-based Token statistics persistence module, supporting total and per-account usage views by hour/day/week.
             - **UI/UX & i18n Enhancements**: Optimized chart tooltips for better Dark Mode contrast; completed full translation for all 8 languages and fixed hardcoded legend labels.
             - **Integration Fix**: Fixed an application crash caused by missing plugin configurations found during the manual merge of the original PR code.
@@ -432,7 +438,7 @@ print(response.choices[0].message.content)
             - **Impact**: Completely resolved the 400 signature error triggered when using Thinking models (e.g., Claude 4.5 Opus / Sonnet) in multi-turn conversations, as well as the resulting "Error searching files" infinite loop (Issue #737).
         - **API Monitor Refresh Fix (Fix Issue #735)**:
             - **Root Cause**: Fixed the issue where new requests were not automatically appearing in the API Monitor list due to a Closure-related bug in the event listener.
-            - **Fix Details**: Optimized the event buffering logic using `useRef`, added a manual Refresh button as a backup, and explicitly enabled Tauri event permissions.
+            - **Fix Details**: Optimized the event buffering logic using `useRef`, added a manual Refresh button as a backup, and explicitly enabled event permissions.
         - **Strict Grouped Quota Protection Fix (Core Thanks to @Mag1cFall PR #746)**:
             - **Root Cause**: Fixed an issue where quota protection failed in strict matching mode due to case sensitivity and missing frontend UI key mapping. Previously, UI shorthand keys like `gemini-pro` could not match the backend-defined `gemini-3-pro-high` strict group.
             - **Fix Details**:

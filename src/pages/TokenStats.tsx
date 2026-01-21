@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { request } from '../utils/request';
 import { useTranslation } from 'react-i18next';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { Clock, Calendar, CalendarDays, Users, Zap, TrendingUp, RefreshCw, Cpu } from 'lucide-react';
@@ -96,21 +96,21 @@ const TokenStats: React.FC = () => {
             switch (timeRange) {
                 case 'hourly':
                     hours = 24;
-                    data = await invoke<TokenStatsAggregated[]>('get_token_stats_hourly', { hours: 24 });
-                    modelTrend = await invoke<ModelTrendPoint[]>('get_token_stats_model_trend_hourly', { hours: 24 });
-                    accountTrend = await invoke<AccountTrendPoint[]>('get_token_stats_account_trend_hourly', { hours: 24 });
+                    data = await request<TokenStatsAggregated[]>('get_token_stats_hourly', { hours: 24 });
+                    modelTrend = await request<ModelTrendPoint[]>('get_token_stats_model_trend_hourly', { hours: 24 });
+                    accountTrend = await request<AccountTrendPoint[]>('get_token_stats_account_trend_hourly', { hours: 24 });
                     break;
                 case 'daily':
                     hours = 168;
-                    data = await invoke<TokenStatsAggregated[]>('get_token_stats_daily', { days: 7 });
-                    modelTrend = await invoke<ModelTrendPoint[]>('get_token_stats_model_trend_daily', { days: 7 });
-                    accountTrend = await invoke<AccountTrendPoint[]>('get_token_stats_account_trend_daily', { days: 7 });
+                    data = await request<TokenStatsAggregated[]>('get_token_stats_daily', { days: 7 });
+                    modelTrend = await request<ModelTrendPoint[]>('get_token_stats_model_trend_daily', { days: 7 });
+                    accountTrend = await request<AccountTrendPoint[]>('get_token_stats_account_trend_daily', { days: 7 });
                     break;
                 case 'weekly':
                     hours = 720;
-                    data = await invoke<TokenStatsAggregated[]>('get_token_stats_weekly', { weeks: 4 });
-                    modelTrend = await invoke<ModelTrendPoint[]>('get_token_stats_model_trend_daily', { days: 30 });
-                    accountTrend = await invoke<AccountTrendPoint[]>('get_token_stats_account_trend_daily', { days: 30 });
+                    data = await request<TokenStatsAggregated[]>('get_token_stats_weekly', { weeks: 4 });
+                    modelTrend = await request<ModelTrendPoint[]>('get_token_stats_model_trend_daily', { days: 30 });
+                    accountTrend = await request<AccountTrendPoint[]>('get_token_stats_account_trend_daily', { days: 30 });
                     break;
             }
 
@@ -150,9 +150,9 @@ const TokenStats: React.FC = () => {
             setAccountTrendData(transformedAccountTrend);
 
             const [accounts, models_stats, summaryData] = await Promise.all([
-                invoke<AccountTokenStats[]>('get_token_stats_by_account', { hours }),
-                invoke<ModelTokenStats[]>('get_token_stats_by_model', { hours }),
-                invoke<TokenStatsSummary>('get_token_stats_summary', { hours })
+                request<AccountTokenStats[]>('get_token_stats_by_account', { hours }),
+                request<ModelTokenStats[]>('get_token_stats_by_model', { hours }),
+                request<TokenStatsSummary>('get_token_stats_summary', { hours })
             ]);
 
             setAccountData(accounts);

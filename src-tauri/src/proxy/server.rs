@@ -32,6 +32,137 @@ pub struct AppState {
     pub experimental: Arc<RwLock<crate::proxy::config::ExperimentalConfig>>,
 }
 
+#[derive(Clone)]
+pub struct ProxyRuntime {
+    pub custom_mapping: Arc<tokio::sync::RwLock<std::collections::HashMap<String, String>>>,
+    pub proxy_state: Arc<tokio::sync::RwLock<crate::proxy::config::UpstreamProxyConfig>>,
+    pub security_state: Arc<RwLock<crate::proxy::ProxySecurityConfig>>,
+    pub zai_state: Arc<RwLock<crate::proxy::ZaiConfig>>,
+    pub experimental: Arc<RwLock<crate::proxy::config::ExperimentalConfig>>,
+}
+
+pub fn build_router(
+    token_manager: Arc<TokenManager>,
+    custom_mapping: std::collections::HashMap<String, String>,
+    request_timeout: u64,
+    upstream_proxy: crate::proxy::config::UpstreamProxyConfig,
+    security_config: crate::proxy::ProxySecurityConfig,
+    zai_config: crate::proxy::ZaiConfig,
+    monitor: Arc<crate::proxy::monitor::ProxyMonitor>,
+    experimental_config: crate::proxy::config::ExperimentalConfig,
+) -> (Router, ProxyRuntime) {
+    let custom_mapping_state = Arc::new(tokio::sync::RwLock::new(custom_mapping));
+    let proxy_state = Arc::new(tokio::sync::RwLock::new(upstream_proxy.clone()));
+    let security_state = Arc::new(RwLock::new(security_config));
+    let zai_state = Arc::new(RwLock::new(zai_config));
+    let provider_rr = Arc::new(AtomicUsize::new(0));
+    let zai_vision_mcp_state = Arc::new(crate::proxy::zai_vision_mcp::ZaiVisionMcpState::new());
+    let experimental_state = Arc::new(RwLock::new(experimental_config));
+
+    let state = AppState {
+        token_manager: token_manager.clone(),
+        custom_mapping: custom_mapping_state.clone(),
+        request_timeout,
+        thought_signature_map: Arc::new(tokio::sync::Mutex::new(
+            std::collections::HashMap::new(),
+        )),
+        upstream_proxy: proxy_state.clone(),
+        upstream: Arc::new(crate::proxy::upstream::client::UpstreamClient::new(Some(
+            upstream_proxy.clone(),
+        ))),
+        zai: zai_state.clone(),
+        provider_rr: provider_rr.clone(),
+        zai_vision_mcp: zai_vision_mcp_state,
+        monitor,
+        experimental: experimental_state.clone(),
+    };
+
+    // 构建路由 - 使用新架构的 handlers！
+    use crate::proxy::handlers;
+    let app = Router::new()
+        // OpenAI Protocol
+        .route("/v1/models", get(handlers::openai::handle_list_models))
+        .route(
+            "/v1/chat/completions",
+            post(handlers::openai::handle_chat_completions),
+        )
+        .route(
+            "/v1/completions",
+            post(handlers::openai::handle_completions),
+        )
+        .route("/v1/responses", post(handlers::openai::handle_completions)) // 兼容 Codex CLI
+        .route(
+            "/v1/images/generations",
+            post(handlers::openai::handle_images_generations),
+        ) // 图像生成 API
+        .route(
+            "/v1/images/edits",
+            post(handlers::openai::handle_images_edits),
+        ) // 图像编辑 API
+        .route(
+            "/v1/audio/transcriptions",
+            post(handlers::audio::handle_audio_transcription),
+        ) // 音频转录 API
+        // Claude Protocol
+        .route("/v1/messages", post(handlers::claude::handle_messages))
+        .route(
+            "/v1/messages/count_tokens",
+            post(handlers::claude::handle_count_tokens),
+        )
+        .route(
+            "/v1/models/claude",
+            get(handlers::claude::handle_list_models),
+        )
+        // z.ai MCP (optional reverse-proxy)
+        .route(
+            "/mcp/web_search_prime/mcp",
+            any(handlers::mcp::handle_web_search_prime),
+        )
+        .route("/mcp/web_reader/mcp", any(handlers::mcp::handle_web_reader))
+        .route(
+            "/mcp/zai-mcp-server/mcp",
+            any(handlers::mcp::handle_zai_mcp_server),
+        )
+        // Gemini Protocol (Native)
+        .route("/v1beta/models", get(handlers::gemini::handle_list_models))
+        // Handle both GET (get info) and POST (generateContent with colon) at the same route
+        .route(
+            "/v1beta/models/:model",
+            get(handlers::gemini::handle_get_model).post(handlers::gemini::handle_generate),
+        )
+        .route(
+            "/v1beta/models/:model/countTokens",
+            post(handlers::gemini::handle_count_tokens),
+        ) // Specific route priority
+        .route("/v1/models/detect", post(handlers::common::handle_detect_model))
+        .route("/internal/warmup", post(handlers::warmup::handle_warmup)) // 内部预热端点
+        .route("/v1/api/event_logging/batch", post(silent_ok_handler))
+        .route("/v1/api/event_logging", post(silent_ok_handler))
+        .route("/healthz", get(health_check_handler))
+        .layer(DefaultBodyLimit::max(100 * 1024 * 1024))
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            crate::proxy::middleware::monitor::monitor_middleware,
+        ))
+        .layer(TraceLayer::new_for_http())
+        .layer(axum::middleware::from_fn_with_state(
+            security_state.clone(),
+            crate::proxy::middleware::auth_middleware,
+        ))
+        .layer(crate::proxy::middleware::cors_layer())
+        .with_state(state);
+
+    let runtime = ProxyRuntime {
+        custom_mapping: custom_mapping_state,
+        proxy_state,
+        security_state,
+        zai_state,
+        experimental: experimental_state,
+    };
+
+    (app, runtime)
+}
+
 /// Axum 服务器实例
 pub struct AxumServer {
     shutdown_tx: Option<oneshot::Sender<()>>,
@@ -81,7 +212,7 @@ impl AxumServer {
         port: u16,
         token_manager: Arc<TokenManager>,
         custom_mapping: std::collections::HashMap<String, String>,
-        _request_timeout: u64,
+        request_timeout: u64,
         upstream_proxy: crate::proxy::config::UpstreamProxyConfig,
         security_config: crate::proxy::ProxySecurityConfig,
         zai_config: crate::proxy::ZaiConfig,
@@ -89,109 +220,16 @@ impl AxumServer {
         experimental_config: crate::proxy::config::ExperimentalConfig,
 
     ) -> Result<(Self, tokio::task::JoinHandle<()>), String> {
-        let custom_mapping_state = Arc::new(tokio::sync::RwLock::new(custom_mapping));
-	        let proxy_state = Arc::new(tokio::sync::RwLock::new(upstream_proxy.clone()));
-	        let security_state = Arc::new(RwLock::new(security_config));
-	        let zai_state = Arc::new(RwLock::new(zai_config));
-	        let provider_rr = Arc::new(AtomicUsize::new(0));
-	        let zai_vision_mcp_state =
-	            Arc::new(crate::proxy::zai_vision_mcp::ZaiVisionMcpState::new());
-	        let experimental_state = Arc::new(RwLock::new(experimental_config));
-
-	        let state = AppState {
-	            token_manager: token_manager.clone(),
-	            custom_mapping: custom_mapping_state.clone(),
-	            request_timeout: 300, // 5分钟超时
-            thought_signature_map: Arc::new(tokio::sync::Mutex::new(
-                std::collections::HashMap::new(),
-            )),
-            upstream_proxy: proxy_state.clone(),
-            upstream: Arc::new(crate::proxy::upstream::client::UpstreamClient::new(Some(
-                upstream_proxy.clone(),
-            ))),
-            zai: zai_state.clone(),
-            provider_rr: provider_rr.clone(),
-            zai_vision_mcp: zai_vision_mcp_state,
-            monitor: monitor.clone(),
-            experimental: experimental_state.clone(),
-        };
-
-
-        // 构建路由 - 使用新架构的 handlers！
-        use crate::proxy::handlers;
-        // 构建路由
-        let app = Router::new()
-            // OpenAI Protocol
-            .route("/v1/models", get(handlers::openai::handle_list_models))
-            .route(
-                "/v1/chat/completions",
-                post(handlers::openai::handle_chat_completions),
-            )
-            .route(
-                "/v1/completions",
-                post(handlers::openai::handle_completions),
-            )
-            .route("/v1/responses", post(handlers::openai::handle_completions)) // 兼容 Codex CLI
-            .route(
-                "/v1/images/generations",
-                post(handlers::openai::handle_images_generations),
-            ) // 图像生成 API
-            .route(
-                "/v1/images/edits",
-                post(handlers::openai::handle_images_edits),
-            ) // 图像编辑 API
-            .route(
-                "/v1/audio/transcriptions",
-                post(handlers::audio::handle_audio_transcription),
-            ) // 音频转录 API
-            // Claude Protocol
-            .route("/v1/messages", post(handlers::claude::handle_messages))
-            .route(
-                "/v1/messages/count_tokens",
-                post(handlers::claude::handle_count_tokens),
-            )
-            .route(
-                "/v1/models/claude",
-                get(handlers::claude::handle_list_models),
-            )
-            // z.ai MCP (optional reverse-proxy)
-            .route(
-                "/mcp/web_search_prime/mcp",
-                any(handlers::mcp::handle_web_search_prime),
-            )
-	            .route(
-	                "/mcp/web_reader/mcp",
-	                any(handlers::mcp::handle_web_reader),
-	            )
-	            .route(
-	                "/mcp/zai-mcp-server/mcp",
-	                any(handlers::mcp::handle_zai_mcp_server),
-	            )
-	            // Gemini Protocol (Native)
-	            .route("/v1beta/models", get(handlers::gemini::handle_list_models))
-            // Handle both GET (get info) and POST (generateContent with colon) at the same route
-            .route(
-                "/v1beta/models/:model",
-                get(handlers::gemini::handle_get_model).post(handlers::gemini::handle_generate),
-            )
-            .route(
-                "/v1beta/models/:model/countTokens",
-                post(handlers::gemini::handle_count_tokens),
-            ) // Specific route priority
-            .route("/v1/models/detect", post(handlers::common::handle_detect_model))
-            .route("/internal/warmup", post(handlers::warmup::handle_warmup)) // 内部预热端点
-            .route("/v1/api/event_logging/batch", post(silent_ok_handler))
-            .route("/v1/api/event_logging", post(silent_ok_handler))
-            .route("/healthz", get(health_check_handler))
-            .layer(DefaultBodyLimit::max(100 * 1024 * 1024))
-            .layer(axum::middleware::from_fn_with_state(state.clone(), crate::proxy::middleware::monitor::monitor_middleware))
-            .layer(TraceLayer::new_for_http())
-            .layer(axum::middleware::from_fn_with_state(
-                security_state.clone(),
-                crate::proxy::middleware::auth_middleware,
-            ))
-            .layer(crate::proxy::middleware::cors_layer())
-            .with_state(state);
+        let (app, runtime) = build_router(
+            token_manager,
+            custom_mapping,
+            request_timeout,
+            upstream_proxy,
+            security_config,
+            zai_config,
+            monitor,
+            experimental_config,
+        );
 
         // 绑定地址
         let addr = format!("{}:{}", host, port);
@@ -206,11 +244,11 @@ impl AxumServer {
 
         let server_instance = Self {
             shutdown_tx: Some(shutdown_tx),
-            custom_mapping: custom_mapping_state.clone(),
-            proxy_state,
-            security_state,
-            zai_state,
-            experimental: experimental_state.clone(),
+            custom_mapping: runtime.custom_mapping,
+            proxy_state: runtime.proxy_state,
+            security_state: runtime.security_state,
+            zai_state: runtime.zai_state,
+            experimental: runtime.experimental,
         };
 
         // 在新任务中启动服务器

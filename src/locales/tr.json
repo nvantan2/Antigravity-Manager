@@ -31,7 +31,6 @@
         "accounts": "hesap",
         "enabled": "Etkin",
         "disabled": "Devre Dışı",
-        "tauri_api_not_loaded": "Tauri API yüklenemedi, lütfen uygulamayı yeniden başlatın",
         "environment_error": "Ortam hatası: {{error}}"
     },
     "nav": {

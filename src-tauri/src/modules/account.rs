@@ -861,7 +861,7 @@ pub struct RefreshStats {
     pub details: Vec<String>,
 }
 
-/// Core logic to batch refresh all account quotas (decoupled from Tauri status)
+/// Core logic to batch refresh all account quotas (decoupled from UI status)
 pub async fn refresh_all_quotas_logic() -> Result<RefreshStats, String> {
     use futures::future::join_all;
     use std::sync::Arc;

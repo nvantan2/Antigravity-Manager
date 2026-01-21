@@ -1,10 +1,6 @@
 
 import { useEffect } from 'react';
 import { useConfigStore } from '../../stores/useConfigStore';
-import { getCurrentWindow } from '@tauri-apps/api/window';
-
-// Detect if running on Linux platform
-const isLinux = navigator.userAgent.toLowerCase().includes('linux');
 
 export default function ThemeManager() {
     const { config, loadConfig } = useConfigStore();
@@ -13,10 +9,6 @@ export default function ThemeManager() {
     useEffect(() => {
         const init = async () => {
             await loadConfig();
-            // Show window after a short delay to ensure React has painted
-            setTimeout(async () => {
-                await getCurrentWindow().show();
-            }, 100);
         };
         init();
     }, [loadConfig]);
@@ -28,17 +20,6 @@ export default function ThemeManager() {
         const applyTheme = async (theme: string) => {
             const root = document.documentElement;
             const isDark = theme === 'dark';
-
-            // Set Tauri window background color
-            // Skip on Linux due to crash with transparent windows + softbuffer
-            try {
-                if (!isLinux) {
-                    const bgColor = isDark ? '#1d232a' : '#FAFBFC';
-                    await getCurrentWindow().setBackgroundColor(bgColor);
-                }
-            } catch (e) {
-                console.error('Failed to set window background color:', e);
-            }
 
             // Set DaisyUI theme
             root.setAttribute('data-theme', theme);

@@ -31,7 +31,6 @@
         "accounts": "アカウント",
         "enabled": "有効",
         "disabled": "無効",
-        "tauri_api_not_loaded": "Tauri APIが読み込まれていません。アプリを再起動してください",
         "environment_error": "環境エラー: {{error}}",
         "load_more": "もっと読み込む"
     },

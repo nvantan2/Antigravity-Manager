@@ -384,7 +384,7 @@ pub fn close_antigravity(#[allow(unused_variables)] timeout_secs: u64) -> Result
         let pids = get_antigravity_pids();
         if !pids.is_empty() {
             // 1. Identify main process (PID)
-            // Strategy: Principal processes of Electron/Tauri do not have the `--type` parameter, while Helper processes have `--type=renderer/gpu/utility`, etc.
+            // Strategy: Principal processes of desktop runtimes do not have the `--type` parameter, while Helper processes have `--type=renderer/gpu/utility`, etc.
             let mut system = System::new();
             system.refresh_processes(sysinfo::ProcessesToUpdate::All);
 

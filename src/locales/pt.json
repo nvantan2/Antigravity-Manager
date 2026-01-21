@@ -31,7 +31,6 @@
         "accounts": "contas",
         "enabled": "Habilitado",
         "disabled": "Desabilitado",
-        "tauri_api_not_loaded": "API Tauri não carregada, por favor reinicie o aplicativo",
         "environment_error": "Erro de ambiente: {{error}}"
     },
     "nav": {

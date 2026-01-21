@@ -32,7 +32,6 @@
         "accounts": "аккаунтов",
         "enabled": "Включено",
         "disabled": "Отключено",
-        "tauri_api_not_loaded": "API Tauri не загружен, пожалуйста перезапустите приложение",
         "environment_error": "Ошибка окружения: {{error}}"
     },
     "nav": {

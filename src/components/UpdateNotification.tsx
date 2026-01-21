@@ -1,9 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { X, Download, Sparkles, ArrowRight, Loader2, CheckCircle } from 'lucide-react';
-import { invoke } from '@tauri-apps/api/core';
 import { useTranslation } from 'react-i18next';
-import { check } from '@tauri-apps/plugin-updater';
-import { relaunch } from '@tauri-apps/plugin-process';
+import { request } from '../utils/request';
 
 interface UpdateInfo {
   has_update: boolean;
@@ -32,7 +30,7 @@ export const UpdateNotification: React.FC<UpdateNotificationProps> = ({ onClose 
 
   const checkForUpdates = async () => {
     try {
-      const info = await invoke<UpdateInfo>('check_for_updates');
+      const info = await request<UpdateInfo>('check_for_updates');
       if (info.has_update) {
         setUpdateInfo(info);
         setUpdateState('available');
@@ -48,38 +46,9 @@ export const UpdateNotification: React.FC<UpdateNotificationProps> = ({ onClose 
 
   const handleAutoUpdate = async () => {
     setUpdateState('downloading');
-    try {
-      const update = await check();
-      if (update) {
-        let downloaded = 0;
-        let contentLength = 0;
-        
-        await update.downloadAndInstall((event) => {
-          switch (event.event) {
-            case 'Started':
-              contentLength = event.data.contentLength || 0;
-              break;
-            case 'Progress':
-              downloaded += event.data.chunkLength;
-              if (contentLength > 0) {
-                setDownloadProgress(Math.round((downloaded / contentLength) * 100));
-              }
-              break;
-            case 'Finished':
-              setUpdateState('ready');
-              break;
-          }
-        });
-
-        setUpdateState('ready');
-        setTimeout(async () => {
-          await relaunch();
-        }, 1500);
-      }
-    } catch (error) {
-      console.error('Auto update failed:', error);
-      handleManualDownload();
-    }
+    handleManualDownload();
+    setDownloadProgress(100);
+    setUpdateState('ready');
   };
 
   const handleManualDownload = () => {
@@ -197,7 +166,7 @@ export const UpdateNotification: React.FC<UpdateNotificationProps> = ({ onClose 
                 "
               >
                 <Download className="w-4 h-4" />
-                <span>{t('update_notification.auto_update', '自动更新')}</span>
+                <span>{t('update_notification.auto_update', '下载更新')}</span>
                 <ArrowRight className="w-4 h-4 opacity-0 -translate-x-2 group-hover/btn:opacity-100 group-hover/btn:translate-x-0 transition-all duration-300" />
                 <div className="absolute inset-0 -translate-x-full group-hover/btn:animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/20 to-transparent z-20 pointer-events-none" />
               </button>

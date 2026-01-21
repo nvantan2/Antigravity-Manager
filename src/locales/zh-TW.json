@@ -32,7 +32,6 @@
         "accounts": "個帳號",
         "enabled": "已啟用",
         "disabled": "已停用",
-        "tauri_api_not_loaded": "Tauri API 未正確載入,請重啟應用",
         "environment_error": "環境錯誤: {{error}}"
     },
     "nav": {

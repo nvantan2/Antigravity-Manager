@@ -7,14 +7,14 @@ import Settings from './pages/Settings';
 import ApiProxy from './pages/ApiProxy';
 import Monitor from './pages/Monitor';
 import TokenStats from './pages/TokenStats';
+import OAuthCallback from './pages/OAuthCallback';
 import ThemeManager from './components/common/ThemeManager';
 import { UpdateNotification } from './components/UpdateNotification';
 import { useEffect, useState } from 'react';
 import { useConfigStore } from './stores/useConfigStore';
 import { useAccountStore } from './stores/useAccountStore';
 import { useTranslation } from 'react-i18next';
-import { listen } from '@tauri-apps/api/event';
-import { invoke } from '@tauri-apps/api/core';
+import { request } from './utils/request';
 
 const router = createBrowserRouter([
   {
@@ -47,6 +47,10 @@ const router = createBrowserRouter([
       },
     ],
   },
+  {
+    path: '/oauth/callback',
+    element: <OAuthCallback />,
+  },
 ]);
 
 function App() {
@@ -65,34 +69,13 @@ function App() {
     }
   }, [config?.language, i18n]);
 
-  // Listen for tray events
+  // Poll account state periodically (web mode has no tray events)
   useEffect(() => {
-    const unlistenPromises: Promise<() => void>[] = [];
-
-    // 监听托盘切换账号事件
-    unlistenPromises.push(
-      listen('tray://account-switched', () => {
-        console.log('[App] Tray account switched, refreshing...');
-        fetchCurrentAccount();
-        fetchAccounts();
-      })
-    );
-
-    // 监听托盘刷新事件
-    unlistenPromises.push(
-      listen('tray://refresh-current', () => {
-        console.log('[App] Tray refresh triggered, refreshing...');
-        fetchCurrentAccount();
-        fetchAccounts();
-      })
-    );
-
-    // Cleanup
-    return () => {
-      Promise.all(unlistenPromises).then(unlisteners => {
-        unlisteners.forEach(unlisten => unlisten());
-      });
-    };
+    const interval = setInterval(() => {
+      fetchCurrentAccount();
+      fetchAccounts();
+    }, 15000);
+    return () => clearInterval(interval);
   }, [fetchCurrentAccount, fetchAccounts]);
 
   // Update notification state
@@ -103,14 +86,14 @@ function App() {
     const checkUpdates = async () => {
       try {
         console.log('[App] Checking if we should check for updates...');
-        const shouldCheck = await invoke<boolean>('should_check_updates');
+        const shouldCheck = await request<boolean>('should_check_updates');
         console.log('[App] Should check updates:', shouldCheck);
 
         if (shouldCheck) {
           setShowUpdateNotification(true);
           // 我们这里只负责显示通知组件，通知组件内部会去调用 check_for_updates
           // 我们在显示组件后，标记已经检查过了（即便失败或无更新，组件内部也会处理）
-          await invoke('update_last_check_time');
+          await request('update_last_check_time');
           console.log('[App] Update check cycle initiated and last check time updated.');
         }
       } catch (error) {

@@ -20,8 +20,8 @@ interface AccountState {
     reorderAccounts: (accountIds: string[]) => Promise<void>;
 
     // 新增 actions
-    startOAuthLogin: () => Promise<void>;
-    completeOAuthLogin: () => Promise<void>;
+    startOAuthLogin: (redirectUri: string) => Promise<string>;
+    completeOAuthLogin: (code: string, redirectUri: string) => Promise<void>;
     cancelOAuthLogin: () => Promise<void>;
     importV1Accounts: () => Promise<void>;
     importFromDb: () => Promise<void>;
@@ -171,22 +171,23 @@ export const useAccountStore = create<AccountState>((set, get) => ({
         }
     },
 
-    startOAuthLogin: async () => {
+    startOAuthLogin: async (redirectUri: string) => {
         set({ loading: true, error: null });
         try {
-            await accountService.startOAuthLogin();
+            const authUrl = await accountService.startOAuthLogin(redirectUri);
             await get().fetchAccounts();
             set({ loading: false });
+            return authUrl;
         } catch (error) {
             set({ error: String(error), loading: false });
             throw error;
         }
     },
 
-    completeOAuthLogin: async () => {
+    completeOAuthLogin: async (code: string, redirectUri: string) => {
         set({ loading: true, error: null });
         try {
-            await accountService.completeOAuthLogin();
+            await accountService.completeOAuthLogin(code, redirectUri);
             await get().fetchAccounts();
             set({ loading: false });
         } catch (error) {

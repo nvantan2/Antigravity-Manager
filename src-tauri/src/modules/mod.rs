@@ -5,16 +5,14 @@ pub mod logger;
 pub mod db;
 pub mod process;
 pub mod oauth;
-pub mod oauth_server;
 pub mod migration;
-pub mod tray;
-pub mod i18n;
 pub mod proxy_db;
 pub mod device;
 pub mod update_checker;
-pub mod scheduler;
 pub mod http_api;
 pub mod token_stats;
+pub mod web_api;
+pub mod scheduler;
 
 use crate::models;
 

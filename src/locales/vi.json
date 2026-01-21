@@ -32,7 +32,6 @@
         "accounts": "tài khoản",
         "enabled": "Đã bật",
         "disabled": "Đã tắt",
-        "tauri_api_not_loaded": "Tauri API chưa được tải, vui lòng khởi động lại ứng dụng",
         "environment_error": "Lỗi môi trường: {{error}}"
     },
     "nav": {

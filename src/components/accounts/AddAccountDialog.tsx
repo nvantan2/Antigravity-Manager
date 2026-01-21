@@ -1,11 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Plus, Database, Globe, FileClock, Loader2, CheckCircle2, XCircle, Copy, Check } from 'lucide-react';
 import { useAccountStore } from '../../stores/useAccountStore';
 import { useTranslation } from 'react-i18next';
-import { listen } from '@tauri-apps/api/event';
-import { open } from '@tauri-apps/plugin-dialog';
-import { request as invoke } from '../../utils/request';
 
 interface AddAccountDialogProps {
     onAdd: (email: string, refreshToken: string) => Promise<void>;
@@ -25,19 +22,8 @@ function AddAccountDialog({ onAdd }: AddAccountDialogProps) {
     const [status, setStatus] = useState<Status>('idle');
     const [message, setMessage] = useState('');
 
-    const { startOAuthLogin, completeOAuthLogin, cancelOAuthLogin, importFromDb, importV1Accounts, importFromCustomDb } = useAccountStore();
-
-    const oauthUrlRef = useRef(oauthUrl);
-    const statusRef = useRef(status);
-    const activeTabRef = useRef(activeTab);
-    const isOpenRef = useRef(isOpen);
-
-    useEffect(() => {
-        oauthUrlRef.current = oauthUrl;
-        statusRef.current = status;
-        activeTabRef.current = activeTab;
-        isOpenRef.current = isOpen;
-    }, [oauthUrl, status, activeTab, isOpen]);
+    const { startOAuthLogin, cancelOAuthLogin, importFromDb, importV1Accounts, importFromCustomDb } = useAccountStore();
+    const redirectUri = `${window.location.origin}/oauth/callback`;
 
     // Reset state when dialog opens or tab changes
     useEffect(() => {
@@ -46,83 +32,9 @@ function AddAccountDialog({ onAdd }: AddAccountDialogProps) {
         }
     }, [isOpen, activeTab]);
 
-    // Listen for OAuth URL
-    useEffect(() => {
-        let unlisten: (() => void) | undefined;
+    // OAuth events are not available in web mode
 
-        const setupListener = async () => {
-            unlisten = await listen('oauth-url-generated', (event) => {
-                setOauthUrl(event.payload as string);
-                // 自动复制到剪贴板? 可选，这里只设置状态让用户手动复制
-            });
-        };
-
-        setupListener();
-
-        return () => {
-            if (unlisten) unlisten();
-        };
-    }, []);
-
-    // Listen for OAuth callback completion (user may open the URL manually without clicking Start)
-    useEffect(() => {
-        let unlisten: (() => void) | undefined;
-
-        const setupListener = async () => {
-            unlisten = await listen('oauth-callback-received', async () => {
-                if (!isOpenRef.current) return;
-                if (activeTabRef.current !== 'oauth') return;
-                if (statusRef.current === 'loading' || statusRef.current === 'success') return;
-                if (!oauthUrlRef.current) return;
-
-                // Auto-complete: exchange code and save account (no browser open)
-                setStatus('loading');
-                setMessage(`${t('accounts.add.tabs.oauth')}...`);
-
-                try {
-                    await completeOAuthLogin();
-                    setStatus('success');
-                    setMessage(`${t('accounts.add.tabs.oauth')} ${t('common.success')}!`);
-                    setTimeout(() => {
-                        setIsOpen(false);
-                        resetState();
-                    }, 1500);
-                } catch (error) {
-                    setStatus('error');
-                    let errorMsg = String(error);
-                    if (errorMsg.includes('Refresh Token') || errorMsg.includes('refresh_token')) {
-                        setMessage(errorMsg);
-                    } else if (errorMsg.includes('Tauri') || errorMsg.toLowerCase().includes('environment') || errorMsg.includes('环境')) {
-                        setMessage(t('common.environment_error', { error: errorMsg }));
-                    } else {
-                        setMessage(`${t('accounts.add.tabs.oauth')} ${t('common.error')}: ${errorMsg}`);
-                    }
-                }
-            });
-        };
-
-        setupListener();
-
-        return () => {
-            if (unlisten) unlisten();
-        };
-    }, [completeOAuthLogin, t]);
-
-    // Pre-generate OAuth URL when dialog opens on OAuth tab (so URL is shown BEFORE "Start OAuth")
-    useEffect(() => {
-        if (!isOpen) return;
-        if (activeTab !== 'oauth') return;
-        if (oauthUrl) return;
-
-        invoke<string>('prepare_oauth_url')
-            .then((url) => {
-                // Set directly (also emitted via event), to avoid any race if event is missed.
-                if (typeof url === 'string' && url.length > 0) setOauthUrl(url);
-            })
-            .catch((e) => {
-                console.error('Failed to prepare OAuth URL:', e);
-            });
-    }, [isOpen, activeTab, oauthUrl]);
+    // OAuth callbacks are not available in web mode
 
     // If user navigates away from OAuth tab, cancel prepared flow to release the port.
     useEffect(() => {
@@ -172,7 +84,7 @@ function AddAccountDialog({ onAdd }: AddAccountDialogProps) {
             // 如果是 refresh_token 缺失错误,显示完整信息(包含解决方案)
             if (errorMsg.includes('Refresh Token') || errorMsg.includes('refresh_token')) {
                 setMessage(errorMsg);
-            } else if (errorMsg.includes('Tauri') || errorMsg.toLowerCase().includes('environment') || errorMsg.includes('环境')) {
+            } else if (errorMsg.toLowerCase().includes('environment') || errorMsg.includes('环境')) {
                 // 环境错误
                 setMessage(t('common.environment_error', { error: errorMsg }));
             } else {
@@ -267,15 +179,19 @@ function AddAccountDialog({ onAdd }: AddAccountDialogProps) {
         }
     };
 
-    const handleOAuth = () => {
-        // Default flow: opens the default browser and completes automatically.
-        // (If user opened the URL manually, completion is also triggered by oauth-callback-received.)
-        handleAction(t('accounts.add.tabs.oauth'), startOAuthLogin, { clearOauthUrl: false });
-    };
-
-    const handleCompleteOAuth = () => {
-        // Manual flow: user already authorized in their preferred browser, just finish the flow.
-        handleAction(t('accounts.add.tabs.oauth'), completeOAuthLogin, { clearOauthUrl: false });
+    const handleOAuth = async () => {
+        setStatus('loading');
+        setMessage(`${t('accounts.add.tabs.oauth')}...`);
+        try {
+            const url = await startOAuthLogin(redirectUri);
+            setOauthUrl(url);
+            window.open(url, '_blank', 'noopener,noreferrer');
+            setStatus('success');
+            setMessage(t('accounts.add.oauth.btn_waiting'));
+        } catch (error) {
+            setStatus('error');
+            setMessage(String(error));
+        }
     };
 
     const handleCopyUrl = async () => {
@@ -300,18 +216,11 @@ function AddAccountDialog({ onAdd }: AddAccountDialogProps) {
 
     const handleImportCustomDb = async () => {
         try {
-            const selected = await open({
-                multiple: false,
-                filters: [{
-                    name: 'VSCode DB',
-                    extensions: ['vscdb']
-                }, {
-                    name: 'All Files',
-                    extensions: ['*']
-                }]
-            });
-
-            if (selected && typeof selected === 'string') {
+            const selected = window.prompt(
+                t('accounts.add.import.btn_custom_db') || 'Import Custom DB',
+                ''
+            );
+            if (selected) {
                 handleAction(t('accounts.add.import.btn_custom_db') || 'Import Custom DB', () => importFromCustomDb(selected));
             }
         } catch (err) {
@@ -361,9 +270,6 @@ function AddAccountDialog({ onAdd }: AddAccountDialogProps) {
                     className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 backdrop-blur-sm"
                     style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
                 >
-                    {/* Draggable Top Region */}
-                    <div data-tauri-drag-region className="fixed top-0 left-0 right-0 h-8 z-[1]" />
-
                     {/* Click outside to close */}
                     <div className="absolute inset-0 z-[0]" onClick={() => setIsOpen(false)} />
 
@@ -452,15 +358,9 @@ function AddAccountDialog({ onAdd }: AddAccountDialogProps) {
                                                     </span>
                                                 </button>
 
-                                                <button
-                                                    type="button"
-                                                    className="w-full px-4 py-2 bg-white dark:bg-base-100 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-xl border border-gray-200 dark:border-base-300 hover:bg-gray-50 dark:hover:bg-base-200 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-                                                    onClick={handleCompleteOAuth}
-                                                    disabled={status === 'loading' || status === 'success'}
-                                                >
-                                                    <CheckCircle2 className="w-4 h-4" />
+                                                <div className="text-[11px] text-gray-500 dark:text-gray-400 text-left">
                                                     {t('accounts.add.oauth.btn_finish')}
-                                                </button>
+                                                </div>
                                             </div>
                                         )}
                                     </div>
